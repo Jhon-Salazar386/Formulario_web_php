@@ -1,0 +1,56 @@
+services:
+    web:
+        build:
+            context: ./src
+            dockerfile: Dockerfile
+        container_name: formulario_web
+        ports:
+            - "8080:80"
+        volumes:
+            - ./src:/var/www/html
+        environment:
+            DB_HOST: db
+            DB_NAME: ${MYSQL_DATABASE}
+            DB_USER: ${MYSQL_USER}
+            DB_PASSWORD: ${MYSQL_PASSWORD}
+        depends_on:
+            db:
+                condition: service_healthy
+        restart: unless-stopped
+    
+    db:
+        image: mysql:latest
+        container_name: formulario_mysql
+        environment:
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+            MYSQL_DATABASE: ${MYSQL_DATABASE}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+        volumes:
+            - mysql_data:/var/lib/mysql
+            - ./src/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$${MYSQL_ROOT_PASSWORD}" --silent
+            interval: 5s
+            timeout: 5s
+            retries: 20
+            start_period: 30s
+        restart: unless-stopped
+    
+    phpmyadmin:
+        image: phpmyadmin:latest
+        container_name: formulario_phpmyadmin
+        ports:
+            - "8081:80"
+        environment:
+            PMA_HOST: db
+            PMA_PORT: 3306
+        depends_on:
+            db:
+                condition: service_healthy
+        restart: unless-stopped
+
+volumes:
+    mysql_data:
